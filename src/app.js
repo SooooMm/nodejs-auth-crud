@@ -1,8 +1,11 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import {} from "./utils/prisma.util.js";
+import dotenv from "dotenv";
 import ErrorHandlingMiddleware from "./middlewares/error-handler.middleware.js";
 import AuthRouter from "./routers/auth.router.js";
+
+dotenv.config();
 
 const app = express();
 const PORT = 3018;
