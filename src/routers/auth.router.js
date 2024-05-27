@@ -1,5 +1,6 @@
 import express from "express";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { prisma } from "../utils/prisma.util.js";
 
 const router = express.Router();
@@ -17,7 +18,7 @@ const createResponse = (status, message, data) => {
 const checkRequiredFields = (fields, body) => {
   for (const field of fields) {
     if (!body[field]) {
-      return res.status(400).json(createResponse(400, `${field}을(를) 입력해주세요.`));
+      return `${field}을(를) 입력해주세요.`;
     }
   }
 };
@@ -25,7 +26,7 @@ const checkRequiredFields = (fields, body) => {
 const validateEmail = (email) => {
   const pattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/i;
   if (!pattern.test(email)) {
-    return res.status(400).json(createResponse(400, "이메일 형식이 올바르지 않습니다."));
+    return "이메일 형식이 올바르지 않습니다.";
   }
 };
 
@@ -42,8 +43,15 @@ router.post("/auth/sign-up", async (req, res, next) => {
   try {
     const { email, password, passwordConfirm, name } = req.body;
 
-    checkRequiredFields(["email", "password", "passwordConfirm", "name"], req.body);
-    validateEmail(email);
+    const missingFieldMessage = checkRequiredFields(["email", "password", "passwordConfirm", "name"], req.body);
+    if (missingFieldMessage) {
+      return res.status(400).json({ message: missingFieldMessage });
+    }
+
+    const emailValidationMessage = validateEmail(email);
+    if (emailValidationMessage) {
+      return res.status(400).json({ message: missingFieldMessage });
+    }
 
     const passwordValidationMessage = validatePassword(password, passwordConfirm);
     if (passwordValidationMessage) {
@@ -80,6 +88,37 @@ router.post("/auth/sign-up", async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+router.post("/auth/sign-in", async (req, res, next) => {
+  const { email, password } = req.body;
+
+  const missingFieldMessage = checkRequiredFields(["email", "password"], req.body);
+  if (missingFieldMessage) {
+    return res.status(400).json({ message: missingFieldMessage });
+  }
+
+  const emailValidationMessage = validateEmail(email);
+  if (emailValidationMessage) {
+    return res.status(400).json({ message: emailValidationMessage });
+  }
+
+  const user = await prisma.users.findFirst({
+    where: { email }
+  });
+
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    return res.status(401).json(createResponse(401, "인증 정보가 유효하지 않습니다."));
+  }
+
+  const token = jwt.sign(
+    {
+      userId: user.userId
+    },
+    process.env.SECRET_KEY
+  );
+  res.cookie("authorization", `Bearer ${token}`);
+  return res.status(200).json(createResponse(200, "로그인을 성공했습니다."));
 });
 
 export default router;
