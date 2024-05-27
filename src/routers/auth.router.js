@@ -115,7 +115,10 @@ router.post("/auth/sign-in", async (req, res, next) => {
     {
       userId: user.userId
     },
-    process.env.SECRET_KEY
+    process.env.SECRET_KEY,
+    {
+      expiresIn: "12h"
+    }
   );
   res.cookie("authorization", `Bearer ${token}`);
   return res.status(200).json(createResponse(200, "로그인을 성공했습니다."));
