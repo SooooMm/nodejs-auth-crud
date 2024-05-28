@@ -113,15 +113,19 @@ router.post("/auth/sign-in", async (req, res, next) => {
 
   const token = jwt.sign(
     {
-      userId: user.userId
+      userId: user.id
     },
     process.env.SECRET_KEY,
     {
       expiresIn: "12h"
     }
   );
-  res.cookie("authorization", `Bearer ${token}`);
-  return res.status(200).json(createResponse(200, "로그인을 성공했습니다."));
+
+  req.header.authorization = `Bearer ${token}`;
+  return res.status(200).json({
+    message: "액세스 토큰이 발급 완료되었습니다.",
+    Authorization: `Bearer ${token}`
+  });
 });
 
 export default router;
