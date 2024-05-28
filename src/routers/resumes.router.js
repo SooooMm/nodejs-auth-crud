@@ -289,4 +289,53 @@ router.patch("/resumes/:id/status", accessTokenMiddleware, requireRoles([ROLE.RE
   }
 });
 
+router.get("/resumes/:id/logs", accessTokenMiddleware, requireRoles([ROLE.RECRUITER]), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const resumeHistories = await prisma.resumesHistories.findMany({
+      where: {
+        resumeId: +id
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      select: {
+        id: true,
+        resumeId: true,
+        oldValue: true,
+        newValue: true,
+        reason: true,
+        createdAt: true,
+        user: {
+          include: {
+            userInfos: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const formattedResumes = resumeHistories.map((history) => ({
+      id: history.id,
+      name: history.user.userInfos.name,
+      resumeId: history.resumeId,
+      oldValue: history.oldValue,
+      newValue: history.newValue,
+      reason: history.reason,
+      createdAt: history.createdAt
+    }));
+
+    res.status(200).json({
+      message: "이력서 로그 목록 조회 완료되었습니다.",
+      data: formattedResumes
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
