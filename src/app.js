@@ -5,6 +5,7 @@ import "./utils/prisma.util.js";
 import ErrorHandlingMiddleware from "./middlewares/error-handler.middleware.js";
 import AuthRouter from "./routers/auth.router.js";
 import UserRouter from "./routers/users.router.js";
+import ResumeRouter from "./routers/resumes.router.js";
 
 dotenv.config();
 
@@ -13,7 +14,7 @@ const PORT = 3018;
 
 app.use(express.json());
 app.use(cookieParser());
-app.use("/api", [AuthRouter, UserRouter]);
+app.use("/api", [AuthRouter, UserRouter, ResumeRouter]);
 app.use(ErrorHandlingMiddleware);
 
 app.listen(PORT, () => {
