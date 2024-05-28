@@ -122,14 +122,17 @@ router.get("/resumes", accessTokenMiddleware, async (req, res, next) => {
 
 router.get("/resumes/:id", accessTokenMiddleware, async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const { id: userId, role } = req.user;
     const { id } = req.params;
 
+    let whereCondition = {
+      id: +id,
+      userId: +userId
+    };
+    if (role === ROLE.RECRUITER) delete whereCondition.userId;
+
     const resume = await prisma.resumes.findFirst({
-      where: {
-        id: +id,
-        userId: +userId
-      },
+      where: whereCondition,
       select: {
         id: true,
         title: true,
