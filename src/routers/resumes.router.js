@@ -1,14 +1,18 @@
 import express from "express";
+import Joi from "joi";
 import { prisma } from "../utils/prisma.util.js";
 import accessTokenMiddleware from "../middlewares/require-access-token.middleware.js";
-import Joi from "joi";
+import ROLE from "../constants/user.constant.js";
+import STATUS from "../constants/resume.constant.js";
 
 const router = express.Router();
 
 const resumeFields = {
   title: Joi.string().label("제목"),
   summary: Joi.string().min(150).label("자기소개"),
-  status: Joi.string().valid("APPLY", "DROP", "PASS", "INTERVIEW1", "INTERVIEW2", "FINAL_PASS").label("지원 상태")
+  status: Joi.string()
+    .valid(STATUS.APPLY, STATUS.DROP, STATUS.FINAL_PASS, STATUS.INTERVIEW1, STATUS.INTERVIEW2, STATUS.PASS)
+    .label("지원 상태")
 };
 
 const createResumeSchema = Joi.object({
@@ -55,7 +59,7 @@ router.post("/resumes", accessTokenMiddleware, async (req, res, next) => {
         userId: +id,
         title,
         summary,
-        status: "APPLY"
+        status: STATUS.APPLY
       }
     });
 
@@ -67,13 +71,17 @@ router.post("/resumes", accessTokenMiddleware, async (req, res, next) => {
 
 router.get("/resumes", accessTokenMiddleware, async (req, res, next) => {
   try {
-    const { id } = req.user;
-    const { sort } = req.query;
+    const { id, role } = req.user;
+    const { sort, status } = req.query;
+
+    let whereCondition = {
+      userId: +id
+    };
+    if (role === ROLE.RECRUITER) whereCondition = {};
+    if (status) whereCondition.status = status.toUpperCase();
 
     const resumes = await prisma.resumes.findMany({
-      where: {
-        userId: +id
-      },
+      where: whereCondition,
       orderBy: {
         createdAt: sort ? sort.toLowerCase() : "desc"
       },
@@ -212,7 +220,7 @@ router.delete("/resumes/:id", accessTokenMiddleware, async (req, res, next) => {
         userId: +userId
       }
     });
-
+    안;
     return res.status(200).json(createResponse(200, "이력서 삭제에 성공했습니다.", { id: deletedResumes.id }));
   } catch (err) {
     next(err);

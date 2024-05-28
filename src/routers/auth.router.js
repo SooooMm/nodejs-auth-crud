@@ -78,7 +78,7 @@ router.post("/auth/sign-up", async (req, res, next) => {
 
     const userInfo = await prisma.userInfos.create({
       data: {
-        userId: user.id, // 생성한 유저의 userId를 바탕으로 사용자 정보를 생성합니다.
+        userId: user.id,
         name
       }
     });
