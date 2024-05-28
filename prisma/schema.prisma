@@ -16,7 +16,7 @@ model Users {
 
   userInfos UserInfos?
   resumes Resumes[]
-
+  resumeHistories ResumesHistories[]
   @@map("Users")
 }
 
@@ -42,6 +42,21 @@ model Resumes {
   updatedAt DateTime @updatedAt @map("updatedAt")
 
   user Users @relation(fields: [userId],references: [id],onDelete: Cascade)
+  resumeHistories ResumesHistories[]
   @@map("Resumes")
+}
+
+model ResumesHistories {
+  id        Int      @id @default(autoincrement()) @map("id")
+  userId    Int      @map("userId")
+  resumeId  Int      @map("resumeId")
+  oldValue  String   @map("oldValue")
+  newValue  String   @map("newValue")
+  reason    String   @map("reason")
+  createdAt DateTime @default(now()) @map("createdAt")
+
+  user Users @relation(fields: [userId],references: [id],onDelete: Cascade)
+  resume Resumes @relation(fields: [resumeId],references: [id],onDelete: Cascade)
+  @@map("ResumesHistories")
 }
 
