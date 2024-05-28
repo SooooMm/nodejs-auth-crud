@@ -13,15 +13,26 @@ export default async function (req, res, next) {
     const userId = decodedToken.userId;
 
     const user = await prisma.users.findFirst({
-      where: { id: +userId }
+      where: { id: +userId },
+      select: {
+        id: true,
+        userInfos: {
+          select: {
+            role: true
+          }
+        }
+      }
     });
+    const formattedUser = {
+      id: user.id,
+      role: user.userInfos.role
+    };
 
     if (!user) {
       throw new Error("인증 정보와 일치하는 사용자가 없습니다.");
     }
 
-    req.user = user;
-    console.log(req.user);
+    req.user = formattedUser;
     next();
   } catch (error) {
     switch (error.name) {
