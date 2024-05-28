@@ -2,8 +2,10 @@ import express from "express";
 import Joi from "joi";
 import { prisma } from "../utils/prisma.util.js";
 import accessTokenMiddleware from "../middlewares/require-access-token.middleware.js";
+import requireRoles from "../middlewares/require-roles.middleware.js";
 import ROLE from "../constants/user.constant.js";
 import STATUS from "../constants/resume.constant.js";
+import { Prisma } from "@prisma/client";
 
 const router = express.Router();
 
@@ -12,7 +14,8 @@ const resumeFields = {
   summary: Joi.string().min(150).label("자기소개"),
   status: Joi.string()
     .valid(STATUS.APPLY, STATUS.DROP, STATUS.FINAL_PASS, STATUS.INTERVIEW1, STATUS.INTERVIEW2, STATUS.PASS)
-    .label("지원 상태")
+    .label("지원 상태"),
+  reason: Joi.string().label("사유")
 };
 
 const createResumeSchema = Joi.object({
@@ -22,6 +25,16 @@ const createResumeSchema = Joi.object({
   summary: resumeFields.summary.required().messages({
     "any.required": "자기소개을(를) 입력해 주세요.",
     "string.min": "자기소개는 150자 이상 작성해야 합니다."
+  })
+});
+
+const updateResumeSchema = Joi.object({
+  status: resumeFields.title.required().messages({
+    "any.required": "변경하고자 하는 지원 상태를 입력해 주세요.",
+    "any.only": "유효하지 않은 지원 상태입니다."
+  }),
+  reason: resumeFields.reason.required().messages({
+    "any.required": "지원 상태 변경 사유를 입력해 주세요."
   })
 });
 
@@ -227,6 +240,52 @@ router.delete("/resumes/:id", accessTokenMiddleware, async (req, res, next) => {
     return res.status(200).json(createResponse(200, "이력서 삭제에 성공했습니다.", { id: deletedResumes.id }));
   } catch (err) {
     next(err);
+  }
+});
+
+router.patch("/resumes/:id/status", accessTokenMiddleware, requireRoles([ROLE.RECRUITER]), async (req, res, next) => {
+  try {
+    const { id: UserId } = req.user;
+    const { id } = req.params;
+
+    const validation = await updateResumeSchema.validateAsync(req.body);
+    const { status, reason } = validation;
+
+    const resume = await prisma.resumes.findFirst({
+      where: { id: +id }
+    });
+    if (!resume) return res.status(404).json({ message: "이력서가 존재하지 않습니다." });
+
+    const [updatedResume, resumeHistory] = await prisma.$transaction(
+      async (tx) => {
+        const updatedResume = await tx.resumes.update({
+          where: { id: resume.id },
+          data: { status }
+        });
+
+        const resumeHistory = await tx.resumesHistories.create({
+          data: {
+            userId: resume.userId,
+            resumeId: resume.id,
+            oldValue: resume.status,
+            newValue: updatedResume.status,
+            reason: reason
+          }
+        });
+
+        return [updatedResume, resumeHistory];
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted
+      }
+    );
+
+    res.status(200).json({
+      message: "지원 상태가 성공적으로 변경되었습니다.",
+      data: resumeHistory
+    });
+  } catch (error) {
+    next(error);
   }
 });
 
