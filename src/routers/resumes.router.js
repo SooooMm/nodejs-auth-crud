@@ -236,7 +236,7 @@ router.delete("/resumes/:id", accessTokenMiddleware, async (req, res, next) => {
         userId: +userId
       }
     });
-    안;
+
     return res.status(200).json(createResponse(200, "이력서 삭제에 성공했습니다.", { id: deletedResumes.id }));
   } catch (err) {
     next(err);

@@ -2,6 +2,12 @@ import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../utils/prisma.util.js";
+import { HTTP_STATUS } from "../constants/http-status.constant.js";
+import { MESSAGES } from "../constants/message.constant.js";
+import { HASH_SALT_ROUNDS } from "../constants/auth.constant.js";
+import { ACCESS_TOKEN_SECRET_KEY, ACCESS_TOKEN_EXPIRES_IN } from "../constants/env.constant.js";
+import { signUpValidator } from "../middlewares/validators/sign-up-validator.middleware.js";
+import { signInValidator } from "../middlewares/validators/sign-in-validator.middleware.js";
 
 const router = express.Router();
 
@@ -15,48 +21,9 @@ const createResponse = (status, message, data) => {
   return response;
 };
 
-const checkRequiredFields = (fields, body) => {
-  for (const field of fields) {
-    if (!body[field]) {
-      return `${field}을(를) 입력해주세요.`;
-    }
-  }
-};
-
-const validateEmail = (email) => {
-  const pattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/i;
-  if (!pattern.test(email)) {
-    return "이메일 형식이 올바르지 않습니다.";
-  }
-};
-
-const validatePassword = (password, passwordConfirm) => {
-  if (password.length < 6) {
-    return "비밀번호는 6자리 이상이어야 합니다.";
-  }
-  if (password !== passwordConfirm) {
-    return "입력한 두 비밀번호가 일치하지 않습니다.";
-  }
-};
-
-router.post("/auth/sign-up", async (req, res, next) => {
+router.post("/sign-up", signUpValidator, async (req, res, next) => {
   try {
-    const { email, password, passwordConfirm, name } = req.body;
-
-    const missingFieldMessage = checkRequiredFields(["email", "password", "passwordConfirm", "name"], req.body);
-    if (missingFieldMessage) {
-      return res.status(400).json({ message: missingFieldMessage });
-    }
-
-    const emailValidationMessage = validateEmail(email);
-    if (emailValidationMessage) {
-      return res.status(400).json({ message: missingFieldMessage });
-    }
-
-    const passwordValidationMessage = validatePassword(password, passwordConfirm);
-    if (passwordValidationMessage) {
-      return res.status(400).json({ message: passwordValidationMessage });
-    }
+    const { email, password, name } = req.body;
 
     const isExistUser = await prisma.users.findFirst({
       where: {
@@ -65,10 +32,12 @@ router.post("/auth/sign-up", async (req, res, next) => {
     });
 
     if (isExistUser) {
-      return res.status(409).json(createResponse(409, "이미 가입 된 사용자입니다."));
+      return res
+        .status(HTTP_STATUS.CONFLICT)
+        .json(createResponse(HTTP_STATUS.CONFLICT, MESSAGES.AUTH.COMMON.EMAIL.DUPLICATED));
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, HASH_SALT_ROUNDS);
     const user = await prisma.users.create({
       data: {
         email,
@@ -82,50 +51,43 @@ router.post("/auth/sign-up", async (req, res, next) => {
         name
       }
     });
-
     delete userInfo.userId;
-    return res.status(201).json(createResponse(201, "회원가입에 성공했습니다.", userInfo));
+    return res.status(HTTP_STATUS.CREATED).json(createResponse(201, MESSAGES.AUTH.SIGN_UP.SECCEED, userInfo));
   } catch (error) {
     next(error);
   }
 });
 
-router.post("/auth/sign-in", async (req, res, next) => {
-  const { email, password } = req.body;
+router.post("/sign-in", signInValidator, async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
 
-  const missingFieldMessage = checkRequiredFields(["email", "password"], req.body);
-  if (missingFieldMessage) {
-    return res.status(400).json({ message: missingFieldMessage });
-  }
+    const user = await prisma.users.findFirst({
+      where: { email }
+    });
 
-  const emailValidationMessage = validateEmail(email);
-  if (emailValidationMessage) {
-    return res.status(400).json({ message: emailValidationMessage });
-  }
-
-  const user = await prisma.users.findFirst({
-    where: { email }
-  });
-
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    return res.status(401).json(createResponse(401, "인증 정보가 유효하지 않습니다."));
-  }
-
-  const token = jwt.sign(
-    {
-      userId: user.id
-    },
-    process.env.SECRET_KEY,
-    {
-      expiresIn: "12h"
+    const isPasswordMatched = user && bcrypt.compareSync(password, user.password);
+    if (!isPasswordMatched) {
+      return res
+        .status(HTTP_STATUS.UNAUTHORIZED)
+        .json(createResponse(HTTP_STATUS.UNAUTHORIZED, MESSAGES.AUTH.UNAUTHORIZED));
     }
-  );
 
-  req.header.authorization = `Bearer ${token}`;
-  return res.status(200).json({
-    message: "액세스 토큰이 발급 완료되었습니다.",
-    Authorization: `Bearer ${token}`
-  });
+    const payload = { id: user.id };
+    const token = jwt.sign(payload, ACCESS_TOKEN_SECRET_KEY, {
+      expiresIn: ACCESS_TOKEN_EXPIRES_IN
+    });
+
+    return res.status(HTTP_STATUS.OK).json({
+      status: HTTP_STATUS.OK,
+      message: MESSAGES.AUTH.SIGN_IN.SECCEED,
+      data: {
+        token
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;
