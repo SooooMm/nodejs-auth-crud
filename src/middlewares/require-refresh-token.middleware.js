@@ -1,8 +1,9 @@
 import jwt from "jsonwebtoken";
 import { prisma } from "../utils/prisma.util.js";
-import { ACCESS_TOKEN_SECRET_KEY } from "../constants/env.constant.js";
+import { REFRESH_TOKEN_SECRET_KEY } from "../constants/env.constant.js";
 import { HTTP_STATUS } from "../constants/http-status.constant.js";
 import { MESSAGES } from "../constants/message.constant.js";
+import bcrypt from "bcrypt";
 
 export default async function (req, res, next) {
   try {
@@ -32,7 +33,7 @@ export default async function (req, res, next) {
 
     let payload;
     try {
-      payload = jwt.verify(token, ACCESS_TOKEN_SECRET_KEY);
+      payload = jwt.verify(token, REFRESH_TOKEN_SECRET_KEY);
     } catch (error) {
       switch (error.name) {
         case "TokenExpiredError":
@@ -49,6 +50,19 @@ export default async function (req, res, next) {
     }
 
     const { id } = payload;
+    const existRefreshToken = await prisma.refreshToken.findUnique({
+      where: { userId: id }
+    });
+
+    const isValidRefreshToken =
+      existRefreshToken?.refreshToken && bcrypt.compareSync(token, existRefreshToken.refreshToken);
+    if (!isValidRefreshToken) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+        status: HTTP_STATUS.UNAUTHORIZED,
+        message: MESSAGES.AUTH.COMMON.JWT.DISCARDED_TOKEN
+      });
+    }
+
     const user = await prisma.users.findUnique({
       where: { id: +id },
       select: {
