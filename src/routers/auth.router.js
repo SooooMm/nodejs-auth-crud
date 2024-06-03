@@ -5,9 +5,15 @@ import { prisma } from "../utils/prisma.util.js";
 import { HTTP_STATUS } from "../constants/http-status.constant.js";
 import { MESSAGES } from "../constants/message.constant.js";
 import { HASH_SALT_ROUNDS } from "../constants/auth.constant.js";
-import { ACCESS_TOKEN_SECRET_KEY, ACCESS_TOKEN_EXPIRES_IN } from "../constants/env.constant.js";
+import {
+  ACCESS_TOKEN_SECRET_KEY,
+  ACCESS_TOKEN_EXPIRES_IN,
+  REFRESH_TOKEN_SECRET_KEY,
+  REFRESH_TOKEN_EXPIRES_IN
+} from "../constants/env.constant.js";
 import { signUpValidator } from "../middlewares/validators/sign-up-validator.middleware.js";
 import { signInValidator } from "../middlewares/validators/sign-in-validator.middleware.js";
+import requireRefreshToken from "../middlewares/require-refresh-token.middleware.js";
 
 const router = express.Router();
 
@@ -74,20 +80,56 @@ router.post("/sign-in", signInValidator, async (req, res, next) => {
     }
 
     const payload = { id: user.id };
-    const token = jwt.sign(payload, ACCESS_TOKEN_SECRET_KEY, {
-      expiresIn: ACCESS_TOKEN_EXPIRES_IN
-    });
+    const data = await generateAuthTokens(payload);
 
     return res.status(HTTP_STATUS.OK).json({
       status: HTTP_STATUS.OK,
       message: MESSAGES.AUTH.SIGN_IN.SECCEED,
-      data: {
-        token
-      }
+      data: data
     });
   } catch (err) {
     next(err);
   }
 });
 
+router.post("/token", requireRefreshToken, async (req, res, next) => {
+  try {
+    const user = req.user;
+    const payload = { id: user.id };
+    const data = await generateAuthTokens(payload);
+
+    return res.status(HTTP_STATUS.OK).json({
+      status: HTTP_STATUS.OK,
+      message: MESSAGES.AUTH.TOKEN.SECCEED,
+      data: data
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const generateAuthTokens = async (payload) => {
+  const userId = payload.id;
+  const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET_KEY, {
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN
+  });
+
+  const refreshToken = jwt.sign(payload, REFRESH_TOKEN_SECRET_KEY, {
+    expiresIn: REFRESH_TOKEN_EXPIRES_IN
+  });
+
+  const hashedRefreshToken = bcrypt.hashSync(refreshToken, HASH_SALT_ROUNDS);
+  await prisma.refreshToken.upsert({
+    where: { userId: userId },
+    update: {
+      refreshToken: hashedRefreshToken
+    },
+    create: {
+      userId: userId,
+      refreshToken: hashedRefreshToken
+    }
+  });
+
+  return { accessToken, refreshToken };
+};
 export default router;
