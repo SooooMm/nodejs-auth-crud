@@ -1,6 +1,8 @@
 import express from "express";
 import { prisma } from "../utils/prisma.util.js";
 import accessTokenMiddleware from "../middlewares/require-access-token.middleware.js";
+import { HTTP_STATUS } from "../constants/http-status.constant.js";
+import { MESSAGES } from "../constants/message.constant.js";
 
 const router = express.Router();
 
@@ -14,7 +16,7 @@ const createResponse = (status, message, data) => {
   return response;
 };
 
-router.get("/users/me", accessTokenMiddleware, async (req, res, next) => {
+router.get("/me", accessTokenMiddleware, async (req, res, next) => {
   try {
     const { id } = req.user;
     const user = await prisma.users.findFirst({
@@ -36,7 +38,9 @@ router.get("/users/me", accessTokenMiddleware, async (req, res, next) => {
     const { userInfos, ...rest } = user;
     const responseUserData = { ...rest, ...userInfos };
 
-    return res.status(200).json(createResponse(200, "사용자 정보 조회를 완료했습니다.", responseUserData));
+    return res
+      .status(HTTP_STATUS.OK)
+      .json(createResponse(HTTP_STATUS.OK, MESSAGES.USERS.READ_ME.SUCCEED, responseUserData));
   } catch (err) {
     next(err);
   }

@@ -1,22 +1,25 @@
 import express from "express";
 import cookieParser from "cookie-parser";
-import dotenv from "dotenv";
+import { SERVER_PORT } from "./constants/env.constant.js";
+import { HTTP_STATUS } from "./constants/http-status.constant.js";
 import "./utils/prisma.util.js";
 import ErrorHandlingMiddleware from "./middlewares/error-handler.middleware.js";
-import AuthRouter from "./routers/auth.router.js";
-import UserRouter from "./routers/users.router.js";
-import ResumeRouter from "./routers/resumes.router.js";
-
-dotenv.config();
+import { apiRouter } from "./routers/index.js";
 
 const app = express();
-const PORT = 3018;
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use("/api", [AuthRouter, UserRouter, ResumeRouter]);
+
+app.use("/api", apiRouter);
+
+app.get("/health-check", (req, res) => {
+  return res.status(HTTP_STATUS.OK).send("ok");
+});
+
 app.use(ErrorHandlingMiddleware);
 
-app.listen(PORT, () => {
-  console.log(PORT, "포트로 서버가 열렸어요!");
+app.listen(SERVER_PORT, () => {
+  console.log(`${SERVER_PORT}번 포트에서 실행중입니다.`);
 });

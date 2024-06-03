@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["omitApi"]
 }
 
 datasource db {
@@ -8,7 +9,7 @@ datasource db {
 }
 
 model Users {
-  id        Int      @id @default(autoincrement()) @map("id")
+  id        Int      @id @unique @default(autoincrement()) @map("id")
   email     String   @unique @map("email")
   password  String   @map("password")
   createdAt DateTime @default(now()) @map("createdAt")
@@ -24,7 +25,7 @@ model UserInfos {
   id        Int      @id @default(autoincrement()) @map("id")
   userId    Int      @unique @map("userId")
   name      String   @map("name")
-  role      String   @default("APPLICANT") @map("role") 
+  role      UserRole @default(APPLICANT) @map("role") 
   createdAt DateTime @default(now()) @map("createdAt")
   updatedAt DateTime @updatedAt @map("updatedAt")
 
@@ -32,18 +33,32 @@ model UserInfos {
   @@map("UserInfos")
 }
 
+enum UserRole {
+  APPLICANT
+  RECRUITER
+}
+
 model Resumes {
   id        Int      @id @default(autoincrement()) @map("id")
   userId    Int      @map("userId")
   title     String   @map("title")
-  summary   String   @map("summary")
-  status    String   @default("APPLY") @map("status")
+  summary   String   @db.Text @map("summary")
+  status    ResumeStatus  @default(APPLY) @map("status")
   createdAt DateTime @default(now()) @map("createdAt")
   updatedAt DateTime @updatedAt @map("updatedAt")
 
   user Users @relation(fields: [userId],references: [id],onDelete: Cascade)
   resumeHistories ResumesHistories[]
   @@map("Resumes")
+}
+
+enum ResumeStatus {
+  APPLY
+  DROP
+  PASS
+  INTERVIEW1
+  INTERVIEW2
+  FINAL_PASS
 }
 
 model ResumesHistories {
