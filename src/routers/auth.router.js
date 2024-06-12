@@ -92,6 +92,28 @@ router.post("/sign-in", signInValidator, async (req, res, next) => {
   }
 });
 
+router.post("/sign-out", requireRefreshToken, async (req, res, next) => {
+  try {
+    const user = req.user;
+    await prisma.refreshToken.update({
+      where: {
+        userId: user.id
+      },
+      data: {
+        refreshToken: null
+      }
+    });
+
+    return res.status(HTTP_STATUS.OK).json(
+      createResponse(HTTP_STATUS.OK, MESSAGES.AUTH.SIGN_OUT.SECCEED, {
+        id: user.id
+      })
+    );
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post("/token", requireRefreshToken, async (req, res, next) => {
   try {
     const user = req.user;
