@@ -36,6 +36,9 @@ export const MESSAGES = {
     SIGN_IN: {
       SECCEED: "로그인에 성공했습니다."
     },
+    SIGN_OUT: {
+      SECCEED: "로그아웃에 성공했습니다."
+    },
     TOKEN: {
       SECCEED: "토큰 재발급에 성공했습니다."
     }
